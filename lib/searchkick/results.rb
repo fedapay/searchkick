@@ -204,6 +204,46 @@ module Searchkick
       @options[:misspellings]
     end
 
+    def scroll_id
+      @response["_scroll_id"]
+    end
+
+    def scroll
+      raise Error, "Pass `scroll` option to the search method for scrolling" unless scroll_id
+
+      if block_given?
+        records = self
+        while records.any?
+          yield records
+          records = records.scroll
+        end
+
+        records.clear_scroll
+      else
+        begin
+          # TODO Active Support notifications for this scroll call
+          Results.new(@klass, Searchkick.client.scroll(scroll: options[:scroll], body: {scroll_id: scroll_id}), @options)
+        rescue => e
+          if Searchkick.not_found_error?(e) && e.message =~ /search_context_missing_exception/i
+            raise Error, "Scroll id has expired"
+          else
+            raise e
+          end
+        end
+      end
+    end
+
+    def clear_scroll
+      begin
+        # try to clear scroll
+        # not required as scroll will expire
+        # but there is a cost to open scrolls
+        Searchkick.client.clear_scroll(scroll_id: scroll_id)
+      rescue => e
+        raise e unless Searchkick.transport_error?(e)
+      end
+    end
+
     private
 
     def results_query(records, hits)

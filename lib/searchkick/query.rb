@@ -12,14 +12,14 @@ module Searchkick
       :took, :error, :model_name, :entry_name, :total_count, :total_entries,
       :current_page, :per_page, :limit_value, :padding, :total_pages, :num_pages,
       :offset_value, :offset, :previous_page, :prev_page, :next_page, :first_page?, :last_page?,
-      :out_of_range?, :hits, :response, :to_a, :first
+      :out_of_range?, :hits, :response, :to_a, :first, :scroll, :scroll_id, :clear_scroll
 
     def initialize(klass, term = "*", **options)
       unknown_keywords = options.keys - [:aggs, :block, :body, :body_options, :boost,
         :boost_by, :boost_by_distance, :boost_by_recency, :boost_where, :conversions, :conversions_term, :debug, :emoji, :exclude, :execute, :explain,
         :fields, :highlight, :includes, :index_name, :indices_boost, :limit, :load,
         :match, :misspellings, :model_includes, :offset, :operator, :order, :padding, :page, :per_page, :profile,
-        :request_params, :routing, :scope_results, :select, :similar, :smart_aggs, :suggest, :total_entries, :track, :type, :where]
+        :request_params, :routing, :scope_results, :select, :similar, :smart_aggs, :suggest, :total_entries, :track, :type, :where, :scroll]
       raise ArgumentError, "unknown keywords: #{unknown_keywords.join(", ")}" if unknown_keywords.any?
 
       term = term.to_s
@@ -71,6 +71,7 @@ module Searchkick
       }
       params[:type] = @type if @type
       params[:routing] = @routing if @routing
+      params[:scroll] = @scroll if @scroll
       params.merge!(options[:request_params]) if options[:request_params]
       params
     end
@@ -117,7 +118,8 @@ module Searchkick
         term: term,
         scope_results: options[:scope_results],
         index_name: options[:index_name],
-        total_entries: options[:total_entries]
+        total_entries: options[:total_entries],
+        scroll: options[:scroll]
       }
 
       if options[:debug]
@@ -218,6 +220,7 @@ module Searchkick
       per_page = (options[:limit] || options[:per_page] || 10_000).to_i
       padding = [options[:padding].to_i, 0].max
       offset = options[:offset] || (page - 1) * per_page + padding
+      scroll = options[:scroll]
 
       # model and eager loading
       load = options[:load].nil? ? true : options[:load]
@@ -486,11 +489,18 @@ module Searchkick
       # run block
       options[:block].call(payload) if options[:block]
 
+      # scroll optimization when interating over all docs
+      # https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-scroll.html
+      if options[:scroll] && payload[:query] == {match_all: {}}
+        payload[:sort] ||= ["_doc"]
+      end
+
       @body = payload
       @page = page
       @per_page = per_page
       @padding = padding
       @load = load
+      @scroll = scroll
     end
 
     def set_fields

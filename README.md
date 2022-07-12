@@ -229,6 +229,29 @@ View with will_paginate
 <%= will_paginate @products %>
 ```
 
+## Scroll API
+
+Searchkick also supports the [scroll API](https://www.elastic.co/guide/en/elasticsearch/reference/current/paginate-search-results.html#scroll-search-results). Scrolling is not intended for real time user requests, but rather for processing large amounts of data.
+
+```ruby
+Product.search("*", scroll: "1m").scroll do |batch|
+  # process batch ...
+end
+```
+
+You can also scroll batches manually.
+
+```ruby
+products = Product.search("*", scroll: "1m")
+while products.any?
+  # process batch ...
+
+  products = products.scroll
+end
+
+products.clear_scroll
+```
+
 ### Partial Matches
 
 By default, results must match all words in the query.
