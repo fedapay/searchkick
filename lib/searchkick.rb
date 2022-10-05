@@ -225,6 +225,24 @@ module Searchkick
       }
     end
   end
+
+  # private
+  def self.not_found_error?(e)
+    (defined?(Elasticsearch::Transport) && e.is_a?(Elasticsearch::Transport::Transport::Errors::NotFound)) ||
+    (defined?(OpenSearch) && e.is_a?(OpenSearch::Transport::Transport::Errors::NotFound))
+  end
+
+  # private
+  def self.transport_error?(e)
+    (defined?(Elasticsearch::Transport) && e.is_a?(Elasticsearch::Transport::Transport::Error)) ||
+    (defined?(OpenSearch) && e.is_a?(OpenSearch::Transport::Transport::Error))
+  end
+
+  # private
+  def self.not_allowed_error?(e)
+    (defined?(Elasticsearch::Transport) && e.is_a?(Elasticsearch::Transport::Transport::Errors::MethodNotAllowed)) ||
+    (defined?(OpenSearch) && e.is_a?(OpenSearch::Transport::Transport::Errors::MethodNotAllowed))
+  end
 end
 
 # TODO find better ActiveModel hook
