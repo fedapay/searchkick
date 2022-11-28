@@ -11,19 +11,11 @@ module Searchkick
 
     def perform(klass, id, method_name = nil, routing: nil)
       model = klass.constantize
-      record =
-        begin
-          if model.respond_to?(:unscoped)
-            model.unscoped.find(id)
-          else
-            model.find(id)
-          end
-        rescue => e
-          # check by name rather than rescue directly so we don't need
-          # to determine which classes are defined
-          raise e unless RECORD_NOT_FOUND_CLASSES.include?(e.class.name)
-          nil
-        end
+      record = if model.respond_to?(:unscoped)
+                 model.unscoped.find(id)
+               else
+                 model.find(id)
+               end
 
       unless record
         record = model.new
